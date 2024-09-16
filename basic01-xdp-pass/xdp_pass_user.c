@@ -60,6 +60,21 @@ int main(int argc, char **argv)
 		.do_unload = false,
 	};
 
+    /* Micro define
+    #define DECLARE_LIBBPF_OPTS LIBBPF_OPTS
+    #define LIBBPF_OPTS(TYPE, NAME, ...)					    \
+	struct TYPE NAME = ({ 						    \
+		memset(&NAME, 0, sizeof(struct TYPE));			    \
+		(struct TYPE) {						    \
+			.sz = sizeof(struct TYPE),			    \
+			__VA_ARGS__					    \
+		};							    \
+	})
+     */
+    /* GCC -E
+     * struct bpf_object_open_opts bpf_opts = ({ memset(&bpf_opts, 0, sizeof(struct bpf_object_open_opts)); (struct bpf_object_open_opts) { .sz = sizeof(struct bpf_object_open_opts), }; });
+     * struct xdp_program_opts xdp_opts = ({ memset(&xdp_opts, 0, sizeof(struct xdp_program_opts)); (struct xdp_program_opts) { .sz = sizeof(struct xdp_program_opts), .open_filename = filename, .prog_name = progname, .opts = &bpf_opts }; })
+     */
 	DECLARE_LIBBPF_OPTS(bpf_object_open_opts, bpf_opts);
 	DECLARE_LIBXDP_OPTS(xdp_program_opts, xdp_opts,
                             .open_filename = filename,
