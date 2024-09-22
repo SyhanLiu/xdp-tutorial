@@ -84,7 +84,7 @@ int main(int argc, char **argv)
 	parse_cmdline_args(argc, argv, long_options, &cfg, __doc__);
 	/* Required option */
 	if (cfg.ifindex == -1) {
-		fprintf(stderr, "ERR: required option --dev missing\n");
+		fprintf(stderr, "%s:%d, ERR: required option --dev missing\n", __FILE__, __LINE__);
 		usage(argv[0], __doc__, long_options, (argc == 1));
 		return EXIT_FAIL_OPTION;
 	}
@@ -96,8 +96,8 @@ int main(int argc, char **argv)
 		err = do_unload(&cfg);
 		if (err) {
 			libxdp_strerror(err, errmsg, sizeof(errmsg));
-			fprintf(stderr, "Couldn't unload XDP program %s: %s\n",
-				progname, errmsg);
+			fprintf(stderr, "%s:%d Couldn't unload XDP program %s: %s\n",
+                    __FILE__, __LINE__, progname, errmsg);
 			return err;
 		}
 
@@ -105,7 +105,7 @@ int main(int argc, char **argv)
 		return EXIT_OK;
 	}
 
-        /* Create an xdp_program froma a BPF ELF object file */
+        /* Create an xdp_program from a BPF ELF object file */
 	prog = xdp_program__create(&xdp_opts);
 	err = libxdp_get_error(prog);
 	if (err) {

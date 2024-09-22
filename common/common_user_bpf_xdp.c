@@ -227,8 +227,8 @@ int do_unload(struct config *cfg)
 
 	mp = xdp_multiprog__get_from_ifindex(cfg->ifindex);
 	if (libxdp_get_error(mp)) {
-		fprintf(stderr, "Unable to get xdp_dispatcher program: %s\n",
-			strerror(errno));
+		fprintf(stderr, "%s:%d. Unable to get xdp_dispatcher program: %s\n",
+			__FILE__, __LINE__, strerror(errno));
 		goto out;
 	} else if (!mp) {
 		fprintf(stderr, "No XDP program loaded on %s\n", cfg->ifname);

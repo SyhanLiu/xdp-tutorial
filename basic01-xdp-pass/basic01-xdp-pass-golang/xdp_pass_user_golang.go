@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 )
 
@@ -44,7 +45,7 @@ func main() {
 
 	if *skb_mode {
 		l, err := link.AttachXDP(link.XDPOptions{
-			Program:   nil,
+			Program:   ebpf.NewProgram(&ebpf.ProgramSpec{}),
 			Interface: iface.Index,
 		})
 		if err != nil {
@@ -66,4 +67,5 @@ func main() {
 	}
 
 	// ebpf.XDP.
+
 }
