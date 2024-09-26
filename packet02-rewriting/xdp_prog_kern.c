@@ -16,30 +16,56 @@
  */
 static __always_inline int vlan_tag_pop(struct xdp_md *ctx, struct ethhdr *eth)
 {
-	/*
 	void *data_end = (void *)(long)ctx->data_end;
 	struct ethhdr eth_cpy;
 	struct vlan_hdr *vlh;
 	__be16 h_proto;
-	*/
+
 	int vlid = -1;
 
+    // Is not vlan packet
+    if (!((eth->h_proto == bpf_htons(ETH_P_8021Q)) || (eth->h_proto == bpf_htons(ETH_P_8021AD)))) {
+        return vlid;
+    }
+
 	/* Check if there is a vlan tag to pop */
+    vlh = ((void *)eth)+1;
 
 	/* Still need to do bounds checking */
+    if ((void *)vlh + 1 > data_end) {
+        return vlid;
+    }
 
 	/* Save vlan ID for returning, h_proto for updating Ethernet header */
+    // PRI:3比特; CFI:1比特; VID:12比特
+    vlid = bpf_ntohs(vlh->h_vlan_TCI);
+    // Length/Type:2字节
+    /*该字段有两种含义：
+    Length：如果该字段值小于或等于十进制1500（或十六进制0x05DC）时，该字段指后续数据的字节长度，但不包括FCS字段。
+    Type：如果该字段值大于或等于十进制1536（或十六进制0x0600）时，该字段指链路直接封装的上层协议类型。
+    */
+    h_proto = vlh->h_vlan_encapsulated_proto;
 
 	/* Make a copy of the outer Ethernet header before we cut it off */
+    __builtin_memcpy(&eth_cpy, eth, sizeof(eth_cpy));
 
 	/* Actually adjust the head pointer */
+    if (bpf_xdp_adjust_head(ctx, (int)sizeof(*vlh))) {
+        return -1;
+    }
 
 	/* Need to re-evaluate data *and* data_end and do new bounds checking
 	 * after adjusting head
 	 */
+    eth = (void *)(ulong)(ctx->data);
+    data_end = (void *)(ulong)(ctx->data_end);
+    if ((void *)eth + 1 > (void *)data_end) {
+        return -1;
+    }
 
 	/* Copy back the old Ethernet header and update the proto type */
-
+    __builtin_memcpy(eth, &eth_cpy, sizeof(*eth));
+    eth->h_proto = h_proto;
 
 	return vlid;
 }
@@ -50,7 +76,42 @@ static __always_inline int vlan_tag_pop(struct xdp_md *ctx, struct ethhdr *eth)
 static __always_inline int vlan_tag_push(struct xdp_md *ctx,
 					 struct ethhdr *eth, int vlid)
 {
-	return 0;
+    void *data_end = (void *)(long)ctx->data_end;
+    struct ethhdr eth_cpy;
+    struct vlan_hdr *vlh;
+
+    /* First copy the original Ethernet header */
+    __builtin_memcpy(&eth_cpy, eth, sizeof(eth_cpy));
+
+    /* Then add space in front of the packet */
+    if (bpf_xdp_adjust_head(ctx, 0 - (int)sizeof(*vlh)))
+        return -1;
+
+    /* Need to re-evaluate data_end and data after head adjustment, and
+     * bounds check, even though we know there is enough space (as we
+     * increased it).
+     */
+    data_end = (void *)(long)ctx->data_end;
+    eth = (void *)(long)ctx->data;
+
+    if (eth + 1 > data_end)
+        return -1;
+
+    /* Copy back Ethernet header in the right place, populate VLAN tag with
+     * ID and proto, and set outer Ethernet header to VLAN type.
+     */
+    __builtin_memcpy(eth, &eth_cpy, sizeof(*eth));
+
+    vlh = (void *)(eth + 1);
+
+    if (vlh + 1 > data_end)
+        return -1;
+
+    vlh->h_vlan_TCI = bpf_htons(vlid);
+    vlh->h_vlan_encapsulated_proto = eth->h_proto;
+
+    eth->h_proto = bpf_htons(ETH_P_8021Q);
+    return 0;
 }
 
 /* Implement assignment 1 in this section */
